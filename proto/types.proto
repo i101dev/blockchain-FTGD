@@ -1,7 +1,17 @@
 syntax = "proto3";
 
 option go_package = "./proto";
-// option go_package = "github.com/i101dev/blocker/proto";
+
+service Node {
+    rpc Handshake(Version) returns (Version);
+    rpc HandleTX(Transaction) returns (Ack);
+}
+
+message Version {
+    string version = 1;
+    int32 height = 2;
+}
+message Ack{}
 
 message Block {
     Header header = 1;
