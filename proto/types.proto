@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+option go_package = "./proto";
+// option go_package = "github.com/i101dev/blocker/proto";
+
+message Block {
+    Header header = 1;
+    repeated Transaction transactions = 2;
+}
+
+// Sometimes you don't want to send everything to a node
+// Sometimes you only want to send a header - ex. verification, validation, etc
+// If hashing a block, usually just the header, rather than entire block
+message Header {
+    int32 version = 1;
+    int32 height = 2;
+    bytes prevHash = 3;
+    bytes rootHash = 4; // merkle root for all transactions in block
+    int64 timestamp = 5;
+}
+
+message Transaction {}

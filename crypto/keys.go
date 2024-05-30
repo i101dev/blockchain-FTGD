@@ -8,14 +8,16 @@ import (
 )
 
 const (
-	privKeyLen = 64
-	pubKeyLen  = 32
-	seedLen    = 32
-	addressLen = 20
+	SignatureLen = 64
+	PrivKeyLen   = 64
+	PubKeyLen    = 32
+	SeedLen      = 32
+	AddressLen   = 20
+	Version      = 0x00
 )
 
-// -------------------------------------------
-// -------------------------------------------
+// -----------------------------------------------------------------
+// -----------------------------------------------------------------
 type PrivateKey struct {
 	key ed25519.PrivateKey
 }
@@ -31,15 +33,15 @@ func (p *PrivateKey) Sign(msg []byte) *Signature {
 }
 
 func (p *PrivateKey) Public() *PublicKey {
-	b := make([]byte, pubKeyLen)
-	copy(b, p.key[pubKeyLen:])
+	b := make([]byte, PubKeyLen)
+	copy(b, p.key[PubKeyLen:])
 	return &PublicKey{
 		key: b,
 	}
 }
 
 func GeneratePrivateKey() *PrivateKey {
-	seed := make([]byte, seedLen)
+	seed := make([]byte, SeedLen)
 
 	_, err := io.ReadFull(rand.Reader, seed)
 	if err != nil {
@@ -52,7 +54,7 @@ func GeneratePrivateKey() *PrivateKey {
 }
 
 func NewPrivateKeyFromSeed(seed []byte) *PrivateKey {
-	if len(seed) != seedLen {
+	if len(seed) != SeedLen {
 		panic("invalid seed length")
 	}
 
@@ -72,8 +74,8 @@ func NewPrivateKeyFromString(s string) *PrivateKey {
 	return NewPrivateKeyFromSeed(b)
 }
 
-// -------------------------------------------
-// -------------------------------------------
+// -----------------------------------------------------------------
+// -----------------------------------------------------------------
 type PublicKey struct {
 	key ed25519.PublicKey
 }
@@ -84,12 +86,12 @@ func (p *PublicKey) Bytes() []byte {
 
 func (p *PublicKey) Address() Address {
 	return Address{
-		value: p.key[len(p.key)-addressLen:],
+		value: p.key[len(p.key)-AddressLen:],
 	}
 }
 
-// -------------------------------------------
-// -------------------------------------------
+// -----------------------------------------------------------------
+// -----------------------------------------------------------------
 type Signature struct {
 	value []byte
 }
@@ -102,8 +104,8 @@ func (s *Signature) Verify(pubKey *PublicKey, msg []byte) bool {
 	return ed25519.Verify(pubKey.key, msg, s.value)
 }
 
-// -------------------------------------------
-// -------------------------------------------
+// -----------------------------------------------------------------
+// -----------------------------------------------------------------
 type Address struct {
 	value []byte
 }
