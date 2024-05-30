@@ -18,7 +18,7 @@ func TestSignBlock(t *testing.T) {
 
 	var (
 		privKey = crypto.GeneratePrivateKey()
-		pubKey  = privKey.Public()
+		pubKey  = privKey.PubKey()
 		block   = util.RandomBlock()
 	)
 

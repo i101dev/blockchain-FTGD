@@ -32,7 +32,7 @@ func (p *PrivateKey) Sign(msg []byte) *Signature {
 	}
 }
 
-func (p *PrivateKey) Public() *PublicKey {
+func (p *PrivateKey) PubKey() *PublicKey {
 	b := make([]byte, PubKeyLen)
 	copy(b, p.key[PubKeyLen:])
 	return &PublicKey{
@@ -90,6 +90,17 @@ func (p *PublicKey) Address() Address {
 	}
 }
 
+func PubKeyFromBytes(b []byte) *PublicKey {
+
+	if len(b) != PubKeyLen {
+		panic("invalid pubkey length")
+	}
+
+	return &PublicKey{
+		key: ed25519.PublicKey(b),
+	}
+}
+
 // -----------------------------------------------------------------
 // -----------------------------------------------------------------
 type Signature struct {
@@ -102,6 +113,17 @@ func (s *Signature) Bytes() []byte {
 
 func (s *Signature) Verify(pubKey *PublicKey, msg []byte) bool {
 	return ed25519.Verify(pubKey.key, msg, s.value)
+}
+
+func SignatureFromBytes(b []byte) *Signature {
+
+	if len(b) != SignatureLen {
+		panic("invalid signature length")
+	}
+
+	return &Signature{
+		value: b,
+	}
 }
 
 // -----------------------------------------------------------------
