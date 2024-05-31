@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net"
-	"time"
 
 	"github.com/i101dev/blocker/node"
 	"github.com/i101dev/blocker/proto"
@@ -19,28 +17,41 @@ var (
 
 func main() {
 
-	ln, err := net.Listen("tcp", port)
+	startFini := make(chan struct{})
 
-	if err != nil {
-		log.Fatal(err)
-	}
+	node1 := makeNode(":3000", []string{}, startFini)
+	<-startFini
 
-	node := node.NewNode()
-	opts := []grpc.ServerOption{}
-	gRPCserver := grpc.NewServer(opts...)
+	node2 := makeNode(":4000", []string{":3000"}, startFini)
+	<-startFini
 
-	proto.RegisterNodeServer(gRPCserver, node)
-	fmt.Println("\n*** >>> Server node alive on port", port)
+	node3 := makeNode(":5000", []string{":3000", ":4000"}, startFini)
+	<-startFini
+
+	fmt.Printf("\nnode 1 peers - %+v\n", node1.PeerList())
+	fmt.Printf("node 2 peers - %+v\n", node2.PeerList())
+	fmt.Printf("node 3 peers - %+v\n", node3.PeerList())
+
+	select {}
+}
+
+func makeNode(listenAddr string, bootstrapNodes []string, startDone chan struct{}) *node.Node {
+
+	n := node.NewNode(listenAddr)
 
 	go func() {
-		for {
-			time.Sleep(2 * time.Second)
-			// makeTransaction()
-			makeHandshake()
+		if err := n.Start(startDone); err != nil {
+			log.Fatal("Failed to start node - ", err)
 		}
 	}()
 
-	gRPCserver.Serve(ln)
+	if len(bootstrapNodes) > 0 {
+		if err := n.BootstrapNetwork(bootstrapNodes); err != nil {
+			log.Fatal("\n*** >>> [BootstrapNetwork] - ", err)
+		}
+	}
+
+	return n
 }
 
 func makeTransaction() {
@@ -77,8 +88,9 @@ func makeHandshake() {
 	c := proto.NewNodeClient(client)
 
 	version := &proto.Version{
-		Version: "myChain-0.1",
-		Height:  13,
+		Version:    "myChain-0.1",
+		Height:     13,
+		ListenAddr: ":4000",
 	}
 
 	_, err = c.Handshake(context.TODO(), version)

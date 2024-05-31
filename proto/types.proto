@@ -8,8 +8,9 @@ service Node {
 }
 
 message Version {
-    string version = 1;
-    int32 height = 2;
+    string listenAddr = 1;
+    string version = 2;
+    int32 height = 3;
 }
 message Ack{}
 
