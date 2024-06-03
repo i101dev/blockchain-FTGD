@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"sync"
 
@@ -17,7 +18,7 @@ type Node struct {
 	version    string
 
 	peerLock sync.RWMutex
-	peers    map[proto.NodeClient]*proto.Version
+	peerList map[proto.NodeClient]*proto.Version
 
 	proto.UnimplementedNodeServer
 }
@@ -26,9 +27,8 @@ func NewNode(listenAddr string) *Node {
 
 	return &Node{
 		listenAddr: listenAddr,
-		// peerList:   make([]string, 0),
-		peers:   make(map[proto.NodeClient]*proto.Version),
-		version: "myChain-0.1",
+		peerList:   make(map[proto.NodeClient]*proto.Version),
+		version:    "myChain-0.1",
 	}
 }
 
@@ -55,13 +55,8 @@ func (n *Node) Start(bootstrapNodes []string) error {
 	}
 
 	proto.RegisterNodeServer(gRPCserver, n)
-	// fmt.Println("*** >>> Server node active", n.listenAddr)
 
-	// bootstrap the network with a list of curated nodes
 	if len(bootstrapNodes) > 0 {
-		// if err := n.bootstrapNetwork(bootstrapNodes); err != nil {
-		// 	log.Fatal("\n*** >>> [BootstrapNetwork] - ", err)
-		// }
 		go n.bootstrapNetwork(bootstrapNodes)
 	}
 
@@ -69,12 +64,17 @@ func (n *Node) Start(bootstrapNodes []string) error {
 }
 
 func (n *Node) addPeer(c proto.NodeClient, v *proto.Version) {
+
 	n.peerLock.Lock()
 	defer n.peerLock.Unlock()
 
-	// Handler logic where it is decided whether or reject the incoming node connection
+	for _, peerVersion := range n.peerList {
+		if peerVersion.ListenAddr == v.ListenAddr {
+			return
+		}
+	}
 
-	n.peers[c] = v
+	n.peerList[c] = v
 
 	if len(v.PeerList) > 0 {
 		go n.bootstrapNetwork(v.PeerList)
@@ -86,7 +86,7 @@ func (n *Node) addPeer(c proto.NodeClient, v *proto.Version) {
 func (n *Node) deletePeer(c proto.NodeClient) {
 	n.peerLock.Lock()
 	defer n.peerLock.Unlock()
-	delete(n.peers, c)
+	delete(n.peerList, c)
 }
 
 func (n *Node) Handshake(ctx context.Context, v *proto.Version) (*proto.Version, error) {
@@ -111,24 +111,36 @@ func (n *Node) HandleTX(ctx context.Context, tx *proto.Transaction) (*proto.Ack,
 }
 
 // --------------------------------------------------------------------------------------
+
 func (n *Node) bootstrapNetwork(addrs []string) error {
 
-	for _, addr := range addrs {
+	var wg sync.WaitGroup
 
-		if !n.canConnectWith(addr) {
+	for _, a := range addrs {
+
+		if !n.canConnectWith(a) {
 			continue
 		}
 
-		fmt.Printf("\ndialing remote node - local: %s - remote: %s", n.listenAddr, addr)
+		wg.Add(1)
 
-		c, v, err := n.dialRemoteNode(addr)
+		go func(addr string) {
 
-		if err != nil {
-			return err
-		}
+			defer wg.Done()
 
-		n.addPeer(c, v)
+			// fmt.Printf("\ndialing remote node - local: %s - remote: %s", n.listenAddr, addr)
+			c, v, err := n.dialRemoteNode(addr)
+
+			if err != nil {
+				log.Printf("\nFailed to dial remote node: %s - %v", addr, err)
+				return
+			}
+
+			n.addPeer(c, v)
+		}(a)
 	}
+
+	wg.Wait()
 
 	return nil
 }
@@ -163,7 +175,7 @@ func (n *Node) GetPeerList() []string {
 	defer n.peerLock.RUnlock()
 
 	peerList := []string{}
-	for _, version := range n.peers {
+	for _, version := range n.peerList {
 		peerList = append(peerList, version.ListenAddr)
 	}
 

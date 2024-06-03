@@ -13,36 +13,47 @@ import (
 )
 
 var (
-	port = ":3000"
+	originNode    = ":3000"
+	startingPeers = []string{originNode}
 )
 
 func main() {
 
-	node1 := makeNode(":3000", []string{})
+	node1 := makeNode(originNode, []string{})
 	time.Sleep(time.Second * 2)
 
-	node2 := makeNode(":4000", []string{":3000"})
+	node2 := makeNode(":4000", startingPeers)
 	time.Sleep(time.Second * 2)
+	// fmt.Printf("\nnode 1 peers - POST 4000 - %+v\n", node1.GetPeerList())
 
-	node3 := makeNode(":5000", []string{":4000"})
+	node3 := makeNode(":5000", startingPeers)
 	time.Sleep(time.Second * 2)
+	// fmt.Printf("\nnode 1 peers - POST 5000 - %+v\n", node1.GetPeerList())
 
-	node4 := makeNode(":6000", []string{":5000"})
+	node4 := makeNode(":6000", startingPeers)
 	time.Sleep(time.Second * 2)
+	// fmt.Printf("\nnode 1 peers - POST 6000 - %+v\n", node1.GetPeerList())
 
-	node5 := makeNode(":7000", []string{":6000"})
+	node5 := makeNode(":7000", startingPeers)
 	time.Sleep(time.Second * 2)
+	// fmt.Printf("\nnode 1 peers - POST 7000 - %+v\n", node1.GetPeerList())
 
-	node6 := makeNode(":8000", []string{":7000"})
+	node6 := makeNode(":8000", startingPeers)
 	time.Sleep(time.Second * 2)
+	// fmt.Printf("\nnode 1 peers - POST 8000 - %+v\n", node1.GetPeerList())
 
-	fmt.Println("----------------------------------------------------------------------------")
+	node7 := makeNode(":9000", startingPeers)
+	time.Sleep(time.Second * 2)
+	// fmt.Printf("\nnode 1 peers - POST 8000 - %+v\n", node1.GetPeerList())
+
+	fmt.Println("\n----------------------------------------------------------------------------")
 	fmt.Printf("\nnode 1 peers - %+v\n", node1.GetPeerList())
 	fmt.Printf("node 2 peers - %+v\n", node2.GetPeerList())
 	fmt.Printf("node 3 peers - %+v\n", node3.GetPeerList())
 	fmt.Printf("node 4 peers - %+v\n", node4.GetPeerList())
 	fmt.Printf("node 5 peers - %+v\n", node5.GetPeerList())
 	fmt.Printf("node 6 peers - %+v\n", node6.GetPeerList())
+	fmt.Printf("node 7 peers - %+v\n", node7.GetPeerList())
 
 	select {}
 }
@@ -63,7 +74,7 @@ func makeNode(listenAddr string, bootstrapNodes []string) *node.Node {
 func makeTransaction() {
 
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
-	client, err := grpc.NewClient(port, opts...)
+	client, err := grpc.NewClient(originNode, opts...)
 
 	if err != nil {
 		log.Fatal("\n*** >>> [grpc.NewClient] - FAIL -", err)
@@ -85,7 +96,7 @@ func makeTransaction() {
 func makeHandshake() {
 
 	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
-	client, err := grpc.NewClient(port, opts...)
+	client, err := grpc.NewClient(originNode, opts...)
 
 	if err != nil {
 		log.Fatal("\n*** >>> [grpc.NewClient] - FAIL -", err)
