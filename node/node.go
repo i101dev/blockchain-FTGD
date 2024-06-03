@@ -17,7 +17,6 @@ type Node struct {
 	version    string
 
 	peerLock sync.RWMutex
-	peerList []string
 	peers    map[proto.NodeClient]*proto.Version
 
 	proto.UnimplementedNodeServer
@@ -27,9 +26,9 @@ func NewNode(listenAddr string) *Node {
 
 	return &Node{
 		listenAddr: listenAddr,
-		peerList:   make([]string, 0),
-		peers:      make(map[proto.NodeClient]*proto.Version),
-		version:    "myChain-0.1",
+		// peerList:   make([]string, 0),
+		peers:   make(map[proto.NodeClient]*proto.Version),
+		version: "myChain-0.1",
 	}
 }
 
@@ -45,7 +44,7 @@ func makeNodeClient(listenAddr string) (proto.NodeClient, error) {
 	return proto.NewNodeClient(client), nil
 }
 
-func (n *Node) Start(startFini chan struct{}) error {
+func (n *Node) Start(bootstrapNodes []string) error {
 
 	opts := []grpc.ServerOption{}
 	gRPCserver := grpc.NewServer(opts...)
@@ -58,7 +57,13 @@ func (n *Node) Start(startFini chan struct{}) error {
 	proto.RegisterNodeServer(gRPCserver, n)
 	// fmt.Println("*** >>> Server node active", n.listenAddr)
 
-	startFini <- struct{}{} // Signal that this node has started
+	// bootstrap the network with a list of curated nodes
+	if len(bootstrapNodes) > 0 {
+		// if err := n.bootstrapNetwork(bootstrapNodes); err != nil {
+		// 	log.Fatal("\n*** >>> [BootstrapNetwork] - ", err)
+		// }
+		go n.bootstrapNetwork(bootstrapNodes)
+	}
 
 	return gRPCserver.Serve(ln)
 }
@@ -67,31 +72,21 @@ func (n *Node) addPeer(c proto.NodeClient, v *proto.Version) {
 	n.peerLock.Lock()
 	defer n.peerLock.Unlock()
 
-	fmt.Printf("\n(%s) - New peer: (%s) - height: (%d)", n.listenAddr, v.ListenAddr, v.Height)
+	// Handler logic where it is decided whether or reject the incoming node connection
 
 	n.peers[c] = v
-	n.peerList = append(n.peerList, v.ListenAddr)
+
+	if len(v.PeerList) > 0 {
+		go n.bootstrapNetwork(v.PeerList)
+	}
+
+	fmt.Printf("\n(%s) - New peer: (%s) - height: (%d)", n.listenAddr, v.ListenAddr, v.Height)
 }
 
-func (n *Node) deletePeer(c proto.NodeClient, listenAddr string) {
-
+func (n *Node) deletePeer(c proto.NodeClient) {
 	n.peerLock.Lock()
 	defer n.peerLock.Unlock()
 	delete(n.peers, c)
-
-	// Find the index of the listenAddr in peerList
-	index := -1
-	for i, addr := range n.peerList {
-		if addr == listenAddr {
-			index = i
-			break
-		}
-	}
-
-	// If the address is found, remove it from peerList
-	if index != -1 {
-		n.peerList = append(n.peerList[:index], n.peerList[index+1:]...)
-	}
 }
 
 func (n *Node) Handshake(ctx context.Context, v *proto.Version) (*proto.Version, error) {
@@ -106,7 +101,7 @@ func (n *Node) Handshake(ctx context.Context, v *proto.Version) (*proto.Version,
 
 	n.addPeer(client, v)
 
-	return n.getMetadata(), nil
+	return n.getVersion(), nil
 }
 
 func (n *Node) HandleTX(ctx context.Context, tx *proto.Transaction) (*proto.Ack, error) {
@@ -116,22 +111,20 @@ func (n *Node) HandleTX(ctx context.Context, tx *proto.Transaction) (*proto.Ack,
 }
 
 // --------------------------------------------------------------------------------------
-func (n *Node) BootstrapNetwork(addrs []string) error {
+func (n *Node) bootstrapNetwork(addrs []string) error {
 
 	for _, addr := range addrs {
 
-		c, err := makeNodeClient(addr)
-		if err != nil {
-			return err
+		if !n.canConnectWith(addr) {
+			continue
 		}
 
-		version := n.getMetadata()
-		// fmt.Printf("Shaking hand with version - %+v", version)
+		fmt.Printf("\ndialing remote node - local: %s - remote: %s", n.listenAddr, addr)
 
-		v, err := c.Handshake(context.Background(), version)
+		c, v, err := n.dialRemoteNode(addr)
+
 		if err != nil {
-			fmt.Println("\n*** >>> HANDSHAKE FAILED! - ", err)
-			continue
+			return err
 		}
 
 		n.addPeer(c, v)
@@ -140,14 +133,56 @@ func (n *Node) BootstrapNetwork(addrs []string) error {
 	return nil
 }
 
-func (n *Node) getMetadata() *proto.Version {
+func (n *Node) dialRemoteNode(addr string) (proto.NodeClient, *proto.Version, error) {
+
+	c, err := makeNodeClient(addr)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	v, err := c.Handshake(context.Background(), n.getVersion())
+	if err != nil {
+		fmt.Println("\n*** >>> HANDSHAKE FAILED! - ", err)
+		return nil, nil, err
+	}
+
+	return c, v, nil
+}
+
+func (n *Node) getVersion() *proto.Version {
 	return &proto.Version{
 		ListenAddr: n.listenAddr,
 		Version:    "blocker-0.1",
 		Height:     0,
+		PeerList:   n.GetPeerList(),
 	}
 }
 
-func (n *Node) PeerList() []string {
-	return n.peerList
+func (n *Node) GetPeerList() []string {
+	n.peerLock.RLock()
+	defer n.peerLock.RUnlock()
+
+	peerList := []string{}
+	for _, version := range n.peers {
+		peerList = append(peerList, version.ListenAddr)
+	}
+
+	return peerList
+}
+
+func (n *Node) canConnectWith(addr string) bool {
+
+	if n.listenAddr == addr {
+		return false
+	}
+
+	connectedPeers := n.GetPeerList()
+
+	for _, connectedAddr := range connectedPeers {
+		if addr == connectedAddr {
+			return false
+		}
+	}
+
+	return true
 }

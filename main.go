@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/i101dev/blocker/node"
 	"github.com/i101dev/blocker/proto"
@@ -17,39 +18,44 @@ var (
 
 func main() {
 
-	startFini := make(chan struct{})
+	node1 := makeNode(":3000", []string{})
+	time.Sleep(time.Second * 2)
 
-	node1 := makeNode(":3000", []string{}, startFini)
-	<-startFini
+	node2 := makeNode(":4000", []string{":3000"})
+	time.Sleep(time.Second * 2)
 
-	node2 := makeNode(":4000", []string{":3000"}, startFini)
-	<-startFini
+	node3 := makeNode(":5000", []string{":4000"})
+	time.Sleep(time.Second * 2)
 
-	node3 := makeNode(":5000", []string{":3000", ":4000"}, startFini)
-	<-startFini
+	node4 := makeNode(":6000", []string{":5000"})
+	time.Sleep(time.Second * 2)
 
-	fmt.Printf("\nnode 1 peers - %+v\n", node1.PeerList())
-	fmt.Printf("node 2 peers - %+v\n", node2.PeerList())
-	fmt.Printf("node 3 peers - %+v\n", node3.PeerList())
+	node5 := makeNode(":7000", []string{":6000"})
+	time.Sleep(time.Second * 2)
+
+	node6 := makeNode(":8000", []string{":7000"})
+	time.Sleep(time.Second * 2)
+
+	fmt.Println("----------------------------------------------------------------------------")
+	fmt.Printf("\nnode 1 peers - %+v\n", node1.GetPeerList())
+	fmt.Printf("node 2 peers - %+v\n", node2.GetPeerList())
+	fmt.Printf("node 3 peers - %+v\n", node3.GetPeerList())
+	fmt.Printf("node 4 peers - %+v\n", node4.GetPeerList())
+	fmt.Printf("node 5 peers - %+v\n", node5.GetPeerList())
+	fmt.Printf("node 6 peers - %+v\n", node6.GetPeerList())
 
 	select {}
 }
 
-func makeNode(listenAddr string, bootstrapNodes []string, startDone chan struct{}) *node.Node {
+func makeNode(listenAddr string, bootstrapNodes []string) *node.Node {
 
 	n := node.NewNode(listenAddr)
 
 	go func() {
-		if err := n.Start(startDone); err != nil {
+		if err := n.Start(bootstrapNodes); err != nil {
 			log.Fatal("Failed to start node - ", err)
 		}
 	}()
-
-	if len(bootstrapNodes) > 0 {
-		if err := n.BootstrapNetwork(bootstrapNodes); err != nil {
-			log.Fatal("\n*** >>> [BootstrapNetwork] - ", err)
-		}
-	}
 
 	return n
 }
