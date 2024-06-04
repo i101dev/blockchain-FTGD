@@ -2,6 +2,7 @@ package node
 
 import (
 	"encoding/hex"
+	"fmt"
 	"testing"
 
 	"github.com/i101dev/blocker/crypto"
@@ -29,7 +30,7 @@ func RandomBlock(t *testing.T, chain *Chain) *proto.Block {
 
 func TestNewChain(t *testing.T) {
 
-	chain := NewChain(NewMemoryBlockStore(), NewMemoryTXStore())
+	chain := NewChain(NewMemoryBlockStore(), NewMemoryTXStore(), NewMemoryUTXOStore())
 	assert.Equal(t, 0, chain.Height())
 
 	_, err := chain.GetBlockByHeight(0)
@@ -38,7 +39,7 @@ func TestNewChain(t *testing.T) {
 
 func TestChainHeight(t *testing.T) {
 
-	chain := NewChain(NewMemoryBlockStore(), NewMemoryTXStore())
+	chain := NewChain(NewMemoryBlockStore(), NewMemoryTXStore(), NewMemoryUTXOStore())
 
 	for i := 0; i < 100; i++ {
 
@@ -51,7 +52,7 @@ func TestChainHeight(t *testing.T) {
 
 func TestAddBlock(t *testing.T) {
 
-	chain := NewChain(NewMemoryBlockStore(), NewMemoryTXStore())
+	chain := NewChain(NewMemoryBlockStore(), NewMemoryTXStore(), NewMemoryUTXOStore())
 
 	for i := 0; i < 100; i++ {
 
@@ -73,10 +74,10 @@ func TestAddBlock(t *testing.T) {
 func TestAddBlockWithTX(t *testing.T) {
 
 	var (
-		receiver = crypto.GeneratePrivateKey().PubKey().Address().Bytes()
-		sender   = crypto.NewPrivateKeyFromSeedStr(originSeed)
+		receiverPubKey = crypto.GeneratePrivateKey().PubKey().Address().Bytes()
+		senderPrivKey  = crypto.NewPrivateKeyFromSeedStr(originSeed)
 
-		chain = NewChain(NewMemoryBlockStore(), NewMemoryTXStore())
+		chain = NewChain(NewMemoryBlockStore(), NewMemoryTXStore(), NewMemoryUTXOStore())
 		block = RandomBlock(t, chain)
 	)
 
@@ -87,17 +88,17 @@ func TestAddBlockWithTX(t *testing.T) {
 		{
 			PrevOutIndex: 0,
 			PrevTxHash:   types.HashTransaction(ftt),
-			PubKey:       sender.PubKey().Bytes(),
+			PubKey:       senderPrivKey.PubKey().Bytes(),
 		},
 	}
 	outputs := []*proto.TxOutput{
 		{
 			Amount:  100,
-			Address: receiver,
+			Address: receiverPubKey,
 		},
 		{
 			Amount:  23,
-			Address: sender.PubKey().Address().Bytes(),
+			Address: senderPrivKey.PubKey().Address().Bytes(),
 		},
 	}
 
@@ -107,6 +108,9 @@ func TestAddBlockWithTX(t *testing.T) {
 		Outputs: outputs,
 	}
 
+	sig := types.SignTransaction(senderPrivKey, tx)
+	tx.Inputs[0].Signature = sig.Bytes()
+
 	block.Transactions = append(block.Transactions, tx)
 	require.Nil(t, chain.AddBlock(block))
 
@@ -115,4 +119,14 @@ func TestAddBlockWithTX(t *testing.T) {
 	fetchedTx, err := chain.txStore.Get(txHash)
 	assert.Nil(t, err)
 	assert.Equal(t, tx, fetchedTx)
+
+	// Check to see if there exists an unspent UTXO -------
+
+	address := crypto.AddressFromBytes(tx.Outputs[1].Address)
+	key := fmt.Sprintf("%s_%s", address, txHash)
+
+	utxo, err := chain.utxoStore.Get(key)
+	fmt.Println("\n*** >>> [UTXO] -", utxo)
+	assert.Nil(t, err)
+	// assert.Equal(t, outputs[1].Amount, utxo.Amount)
 }
