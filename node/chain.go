@@ -10,6 +10,10 @@ import (
 	"github.com/i101dev/blocker/types"
 )
 
+// ----------------------------------------------------------------------------------
+const originSeed = "b72a9caf5a5c5e6b88ee6f25f053d07b43ddc263a034e2b8e7175e558c18a6ed"
+
+// ----------------------------------------------------------------------------------
 type HeaderList struct {
 	headers []*proto.Header
 }
@@ -42,13 +46,15 @@ func (list *HeaderList) Len() int {
 // ----------------------------------------------------------------
 type Chain struct {
 	blockStore BlockStorer
+	txStore    TXStorer
 	headers    *HeaderList
 }
 
-func NewChain(bs BlockStorer) *Chain {
+func NewChain(bs BlockStorer, ts TXStorer) *Chain {
 
 	newChain := &Chain{
 		blockStore: bs,
+		txStore:    ts,
 		headers:    NewHeaderList(),
 	}
 
@@ -62,7 +68,16 @@ func (c *Chain) Height() int {
 }
 
 func (c *Chain) addBlock(b *proto.Block) error {
+
 	c.headers.Add(b.Header)
+
+	for _, tx := range b.Transactions {
+		// fmt.Println("*** >>> New TX:", hex.EncodeToString(types.HashTransaction(tx)))
+		if err := c.txStore.Put(tx); err != nil {
+			return err
+		}
+	}
+
 	return c.blockStore.Put(b)
 }
 
@@ -72,9 +87,7 @@ func (c *Chain) AddBlock(b *proto.Block) error {
 		return err
 	}
 
-	c.headers.Add(b.Header)
-
-	return c.blockStore.Put(b)
+	return c.addBlock(b)
 }
 
 func (c *Chain) GetBlockByHash(hash []byte) (*proto.Block, error) {
@@ -119,13 +132,26 @@ func (c *Chain) ValidateBlock(newBlock *proto.Block) error {
 
 func createGenesisBlock() *proto.Block {
 
-	privKey := crypto.GeneratePrivateKey()
+	privKey := crypto.NewPrivateKeyFromSeedStr(originSeed)
 
 	block := &proto.Block{
 		Header: &proto.Header{
 			Version: 1,
 		},
 	}
+
+	genesisTX := &proto.Transaction{
+		Version: 1,
+		Inputs:  []*proto.TxInput{},
+		Outputs: []*proto.TxOutput{
+			{
+				Amount:  123,
+				Address: privKey.PubKey().Address().Bytes(),
+			},
+		},
+	}
+
+	block.Transactions = append(block.Transactions, genesisTX)
 
 	types.SignBlock(privKey, block)
 

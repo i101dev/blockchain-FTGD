@@ -74,6 +74,14 @@ func NewPrivateKeyFromString(s string) *PrivateKey {
 	return NewPrivateKeyFromSeed(b)
 }
 
+func NewPrivateKeyFromSeedStr(s string) *PrivateKey {
+	seedBytes, err := hex.DecodeString(s)
+	if err != nil {
+		panic(err)
+	}
+	return NewPrivateKeyFromSeed(seedBytes)
+}
+
 // -----------------------------------------------------------------
 // -----------------------------------------------------------------
 type PublicKey struct {

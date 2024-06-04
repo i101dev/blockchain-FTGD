@@ -66,7 +66,7 @@ func main() {
 		makeTransaction()
 	}
 
-	select {}
+	// select {}
 }
 
 func makeNode(listenAddr string, bootstrapNodes []string, isValidator bool) *node.Node {

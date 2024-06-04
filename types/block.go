@@ -18,9 +18,11 @@ func VerifyBlock(b *proto.Block) bool {
 		return false
 	}
 
-	sig := crypto.SignatureFromBytes(b.Signature)
 	pubKey := crypto.PubKeyFromBytes(b.PublicKey)
+	sig := crypto.SignatureFromBytes(b.Signature)
+
 	hash := HashBlock(b)
+
 	return sig.Verify(pubKey, hash)
 }
 

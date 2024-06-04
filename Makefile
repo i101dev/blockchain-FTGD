@@ -14,3 +14,4 @@ proto:
 
 
 .PHONY: proto
+.PHONY: test
