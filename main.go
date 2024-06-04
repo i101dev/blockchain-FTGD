@@ -6,8 +6,10 @@ import (
 	"log"
 	"time"
 
+	"github.com/i101dev/blocker/crypto"
 	"github.com/i101dev/blocker/node"
 	"github.com/i101dev/blocker/proto"
+	"github.com/i101dev/blocker/util"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -19,48 +21,67 @@ var (
 
 func main() {
 
-	node1 := makeNode(originNode, []string{})
+	node1 := makeNode(originNode, []string{}, true)
 	time.Sleep(time.Second * 2)
 
-	node2 := makeNode(":4000", startingPeers)
+	node2 := makeNode(":4000", startingPeers, false)
 	time.Sleep(time.Second * 2)
 	// fmt.Printf("\nnode 1 peers - POST 4000 - %+v\n", node1.GetPeerList())
 
-	node3 := makeNode(":5000", startingPeers)
+	node3 := makeNode(":5000", startingPeers, false)
 	time.Sleep(time.Second * 2)
 	// fmt.Printf("\nnode 1 peers - POST 5000 - %+v\n", node1.GetPeerList())
 
-	node4 := makeNode(":6000", startingPeers)
-	time.Sleep(time.Second * 2)
+	// node4 := makeNode(":6000", startingPeers, false)
+	// time.Sleep(time.Second * 2)
 	// fmt.Printf("\nnode 1 peers - POST 6000 - %+v\n", node1.GetPeerList())
 
-	node5 := makeNode(":7000", startingPeers)
-	time.Sleep(time.Second * 2)
+	// node5 := makeNode(":7000", startingPeers, false)
+	// time.Sleep(time.Second * 2)
 	// fmt.Printf("\nnode 1 peers - POST 7000 - %+v\n", node1.GetPeerList())
 
-	node6 := makeNode(":8000", startingPeers)
-	time.Sleep(time.Second * 2)
+	// node6 := makeNode(":8000", startingPeers, false)
+	// time.Sleep(time.Second * 2)
 	// fmt.Printf("\nnode 1 peers - POST 8000 - %+v\n", node1.GetPeerList())
 
-	node7 := makeNode(":9000", startingPeers)
-	time.Sleep(time.Second * 2)
+	// node7 := makeNode(":9000", startingPeers, false)
+	// time.Sleep(time.Second * 2)
 	// fmt.Printf("\nnode 1 peers - POST 8000 - %+v\n", node1.GetPeerList())
 
 	fmt.Println("\n----------------------------------------------------------------------------")
 	fmt.Printf("\nnode 1 peers - %+v\n", node1.GetPeerList())
 	fmt.Printf("node 2 peers - %+v\n", node2.GetPeerList())
 	fmt.Printf("node 3 peers - %+v\n", node3.GetPeerList())
-	fmt.Printf("node 4 peers - %+v\n", node4.GetPeerList())
-	fmt.Printf("node 5 peers - %+v\n", node5.GetPeerList())
-	fmt.Printf("node 6 peers - %+v\n", node6.GetPeerList())
-	fmt.Printf("node 7 peers - %+v\n", node7.GetPeerList())
+	// fmt.Printf("node 4 peers - %+v\n", node4.GetPeerList())
+	// fmt.Printf("node 5 peers - %+v\n", node5.GetPeerList())
+	// fmt.Printf("node 6 peers - %+v\n", node6.GetPeerList())
+	// fmt.Printf("node 7 peers - %+v\n", node7.GetPeerList())
+
+	fmt.Println("\n----------------------------------------------------------------------------")
+
+	for {
+		fmt.Println("\n----------------------------------------------------------------------------")
+		fmt.Println("\n*** >>> Making transaction")
+		time.Sleep(time.Millisecond * 350)
+		makeTransaction()
+	}
 
 	select {}
 }
 
-func makeNode(listenAddr string, bootstrapNodes []string) *node.Node {
+func makeNode(listenAddr string, bootstrapNodes []string, isValidator bool) *node.Node {
 
-	n := node.NewNode(listenAddr)
+	cfg := node.ServerConfig{
+		Version:    "blocker-0.1",
+		ListenAddr: listenAddr,
+		PrivateKey: nil,
+	}
+
+	if isValidator {
+		cfg.PrivateKey = crypto.GeneratePrivateKey()
+	}
+
+	n := node.NewNode(cfg)
 
 	go func() {
 		if err := n.Start(bootstrapNodes); err != nil {
@@ -82,8 +103,23 @@ func makeTransaction() {
 
 	c := proto.NewNodeClient(client)
 
+	privKey := crypto.GeneratePrivateKey()
+
 	txn := &proto.Transaction{
 		Version: 1,
+		Inputs: []*proto.TxInput{
+			{
+				PrevTxHash:   util.RandomHash(),
+				PrevOutIndex: 0,
+				PubKey:       privKey.PubKey().Bytes(),
+			},
+		},
+		Outputs: []*proto.TxOutput{
+			{
+				Amount:  99,
+				Address: privKey.PubKey().Address().Bytes(),
+			},
+		},
 	}
 
 	_, err = c.HandleTX(context.TODO(), txn)

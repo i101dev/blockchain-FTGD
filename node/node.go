@@ -2,33 +2,114 @@ package node
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net"
 	"sync"
+	"time"
 
+	"github.com/i101dev/blocker/crypto"
 	"github.com/i101dev/blocker/proto"
+	"github.com/i101dev/blocker/types"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/peer"
 )
 
+// --------------------------------------------------------------
+const blockTime = time.Second * 5
+
+// --------------------------------------------------------------
+
+type Mempool struct {
+	lock sync.RWMutex
+	txx  map[string]*proto.Transaction
+}
+
+func NewMempool() *Mempool {
+	return &Mempool{
+		txx: make(map[string]*proto.Transaction),
+	}
+}
+
+func (pool *Mempool) Clear() []*proto.Transaction {
+
+	pool.lock.Lock()
+	defer pool.lock.Unlock()
+
+	txx := make([]*proto.Transaction, len(pool.txx))
+
+	it := 0
+	for k, v := range pool.txx {
+		delete(pool.txx, k)
+		txx[it] = v
+		it++
+	}
+
+	return txx
+}
+
+func (pool *Mempool) Len() int {
+
+	pool.lock.RLock()
+	defer pool.lock.Unlock()
+
+	return len(pool.txx)
+}
+
+func (pool *Mempool) Has(tx *proto.Transaction) bool {
+
+	pool.lock.RLock()
+	defer pool.lock.RUnlock()
+
+	hash := hex.EncodeToString(types.HashTransaction(tx))
+	_, ok := pool.txx[hash]
+	return ok
+}
+
+func (pool *Mempool) Add(tx *proto.Transaction) bool {
+
+	if pool.Has(tx) {
+		return false
+	}
+
+	pool.lock.Lock()
+	defer pool.lock.Unlock()
+
+	hash := hex.EncodeToString(types.HashTransaction(tx))
+	pool.txx[hash] = tx
+
+	return true
+}
+
+// ----------------------------------------------------------------------
+
+type ServerConfig struct {
+	Version    string
+	ListenAddr string
+	PrivateKey *crypto.PrivateKey
+}
+
 type Node struct {
-	listenAddr string
-	version    string
+	// listenAddr string
+	// version    string
+	ServerConfig
 
 	peerLock sync.RWMutex
 	peerList map[proto.NodeClient]*proto.Version
 
+	mempool *Mempool
+
 	proto.UnimplementedNodeServer
 }
 
-func NewNode(listenAddr string) *Node {
+func NewNode(cfg ServerConfig) *Node {
 
 	return &Node{
-		listenAddr: listenAddr,
-		peerList:   make(map[proto.NodeClient]*proto.Version),
-		version:    "myChain-0.1",
+		peerList:     make(map[proto.NodeClient]*proto.Version),
+		mempool:      NewMempool(),
+		ServerConfig: cfg,
 	}
 }
 
@@ -49,7 +130,7 @@ func (n *Node) Start(bootstrapNodes []string) error {
 	opts := []grpc.ServerOption{}
 	gRPCserver := grpc.NewServer(opts...)
 
-	ln, err := net.Listen("tcp", n.listenAddr)
+	ln, err := net.Listen("tcp", n.ListenAddr)
 	if err != nil {
 		return err
 	}
@@ -58,6 +139,10 @@ func (n *Node) Start(bootstrapNodes []string) error {
 
 	if len(bootstrapNodes) > 0 {
 		go n.bootstrapNetwork(bootstrapNodes)
+	}
+
+	if n.PrivateKey != nil {
+		go n.validatorLoop()
 	}
 
 	return gRPCserver.Serve(ln)
@@ -80,7 +165,7 @@ func (n *Node) addPeer(c proto.NodeClient, v *proto.Version) {
 		go n.bootstrapNetwork(v.PeerList)
 	}
 
-	fmt.Printf("\n(%s) - New peer: (%s) - height: (%d)", n.listenAddr, v.ListenAddr, v.Height)
+	fmt.Printf("\n(%s) - New peer: (%s) - height: (%d)", n.ListenAddr, v.ListenAddr, v.Height)
 }
 
 func (n *Node) deletePeer(c proto.NodeClient) {
@@ -97,7 +182,7 @@ func (n *Node) Handshake(ctx context.Context, v *proto.Version) (*proto.Version,
 		return nil, err
 	}
 
-	// fmt.Printf("Handshake @ %s, from %s", n.listenAddr, v.ListenAddr)
+	// fmt.Printf("Handshake @ %s, from %s", n.ListenAddr, v.ListenAddr)
 
 	n.addPeer(client, v)
 
@@ -105,39 +190,85 @@ func (n *Node) Handshake(ctx context.Context, v *proto.Version) (*proto.Version,
 }
 
 func (n *Node) HandleTX(ctx context.Context, tx *proto.Transaction) (*proto.Ack, error) {
+
 	peer, _ := peer.FromContext(ctx)
-	fmt.Println("\n*** >>> received [tx] from:", peer)
+	hash := hex.EncodeToString(types.HashTransaction(tx))
+
+	if n.mempool.Add(tx) {
+
+		fmt.Printf("\n*** >>> (%s) received [tx] from peer address: (%s)", n.ListenAddr, peer.Addr)
+		fmt.Printf("\n*** >>> [hash] - %s", hash)
+
+		go func() {
+			if err := n.broadcast(tx); err != nil {
+				log.Fatal("\n*** >>> BROADCAST ERROR <<< ***", err)
+			}
+		}()
+	}
+
 	return &proto.Ack{}, nil
+}
+
+func (n *Node) broadcast(msg any) error {
+
+	for peer := range n.peerList {
+
+		switch v := msg.(type) {
+
+		case *proto.Transaction:
+			_, err := peer.HandleTX(context.Background(), v)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (n *Node) validatorLoop() {
+
+	fmt.Print("\n**** >>> Starting Validator Loop <<< ***")
+
+	ticker := time.NewTicker(blockTime)
+
+	for {
+		<-ticker.C
+
+		txx := n.mempool.Clear()
+		fmt.Printf("\n*** >>> CREATE NEW BLOCK <<< *** || lenTx: (%d)", len(txx))
+	}
 }
 
 // --------------------------------------------------------------------------------------
 
-func (n *Node) bootstrapNetwork(addrs []string) error {
+func (n *Node) bootstrapNetwork(knownAddres []string) error {
 
 	var wg sync.WaitGroup
 
-	for _, a := range addrs {
+	for _, addr := range knownAddres {
 
-		if !n.canConnectWith(a) {
+		if !n.canConnectWith(addr) {
 			continue
 		}
 
 		wg.Add(1)
 
-		go func(addr string) {
+		go func(a string) {
+
+			// fmt.Printf("\ndialing remote node - local: %s - remote: %s", n.ListenAddr, addr)
 
 			defer wg.Done()
 
-			// fmt.Printf("\ndialing remote node - local: %s - remote: %s", n.listenAddr, addr)
-			c, v, err := n.dialRemoteNode(addr)
+			c, v, err := n.dialRemoteNode(a)
 
 			if err != nil {
-				log.Printf("\nFailed to dial remote node: %s - %v", addr, err)
+				log.Printf("\nFailed to dial remote node: %s - %v", a, err)
 				return
 			}
 
 			n.addPeer(c, v)
-		}(a)
+
+		}(addr)
 	}
 
 	wg.Wait()
@@ -163,7 +294,7 @@ func (n *Node) dialRemoteNode(addr string) (proto.NodeClient, *proto.Version, er
 
 func (n *Node) getVersion() *proto.Version {
 	return &proto.Version{
-		ListenAddr: n.listenAddr,
+		ListenAddr: n.ListenAddr,
 		Version:    "blocker-0.1",
 		Height:     0,
 		PeerList:   n.GetPeerList(),
@@ -184,7 +315,7 @@ func (n *Node) GetPeerList() []string {
 
 func (n *Node) canConnectWith(addr string) bool {
 
-	if n.listenAddr == addr {
+	if n.ListenAddr == addr {
 		return false
 	}
 

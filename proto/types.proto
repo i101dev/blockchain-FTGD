@@ -7,17 +7,19 @@ service Node {
     rpc HandleTX(Transaction) returns (Ack);
 }
 
+message Ack{}
 message Version {
     string listenAddr = 1;
     string version = 2;
     int32 height = 3;
     repeated string peerList = 4;
 }
-message Ack{}
 
 message Block {
     Header header = 1;
-    repeated Transaction transactions = 2;
+    bytes publicKey = 2;
+    bytes signature = 3;
+    repeated Transaction transactions = 4;
 }
 
 // Sometimes you don't want to send everything to a node
