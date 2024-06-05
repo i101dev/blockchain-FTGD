@@ -26,27 +26,21 @@ func main() {
 
 	node2 := makeNode(":4000", startingPeers, false)
 	time.Sleep(time.Second * 2)
-	// fmt.Printf("\nnode 1 peers - POST 4000 - %+v\n", node1.GetPeerList())
 
 	node3 := makeNode(":5000", startingPeers, false)
 	time.Sleep(time.Second * 2)
-	// fmt.Printf("\nnode 1 peers - POST 5000 - %+v\n", node1.GetPeerList())
 
 	// node4 := makeNode(":6000", startingPeers, false)
 	// time.Sleep(time.Second * 2)
-	// fmt.Printf("\nnode 1 peers - POST 6000 - %+v\n", node1.GetPeerList())
 
 	// node5 := makeNode(":7000", startingPeers, false)
 	// time.Sleep(time.Second * 2)
-	// fmt.Printf("\nnode 1 peers - POST 7000 - %+v\n", node1.GetPeerList())
 
 	// node6 := makeNode(":8000", startingPeers, false)
 	// time.Sleep(time.Second * 2)
-	// fmt.Printf("\nnode 1 peers - POST 8000 - %+v\n", node1.GetPeerList())
 
 	// node7 := makeNode(":9000", startingPeers, false)
 	// time.Sleep(time.Second * 2)
-	// fmt.Printf("\nnode 1 peers - POST 8000 - %+v\n", node1.GetPeerList())
 
 	fmt.Println("\n----------------------------------------------------------------------------")
 	fmt.Printf("\nnode 1 peers - %+v\n", node1.GetPeerList())
@@ -57,12 +51,10 @@ func main() {
 	// fmt.Printf("node 6 peers - %+v\n", node6.GetPeerList())
 	// fmt.Printf("node 7 peers - %+v\n", node7.GetPeerList())
 
-	fmt.Println("\n----------------------------------------------------------------------------")
-
 	for {
 		fmt.Println("\n----------------------------------------------------------------------------")
 		fmt.Println("\n*** >>> Making transaction")
-		time.Sleep(time.Millisecond * 350)
+		time.Sleep(time.Millisecond * 400)
 		makeTransaction()
 	}
 
@@ -129,26 +121,26 @@ func makeTransaction() {
 	}
 }
 
-func makeHandshake() {
+// func makeHandshake() {
 
-	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
-	client, err := grpc.NewClient(originNode, opts...)
+// 	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+// 	client, err := grpc.NewClient(originNode, opts...)
 
-	if err != nil {
-		log.Fatal("\n*** >>> [grpc.NewClient] - FAIL -", err)
-	}
+// 	if err != nil {
+// 		log.Fatal("\n*** >>> [grpc.NewClient] - FAIL -", err)
+// 	}
 
-	c := proto.NewNodeClient(client)
+// 	c := proto.NewNodeClient(client)
 
-	version := &proto.Version{
-		Version:    "myChain-0.1",
-		Height:     13,
-		ListenAddr: ":4000",
-	}
+// 	version := &proto.Version{
+// 		Version:    "myChain-0.1",
+// 		Height:     13,
+// 		ListenAddr: ":4000",
+// 	}
 
-	_, err = c.Handshake(context.TODO(), version)
+// 	_, err = c.Handshake(context.TODO(), version)
 
-	if err != nil {
-		log.Fatal("\n*** >>> [makeHandshake] - FAIL -", err)
-	}
-}
+// 	if err != nil {
+// 		log.Fatal("\n*** >>> [makeHandshake] - FAIL -", err)
+// 	}
+// }
