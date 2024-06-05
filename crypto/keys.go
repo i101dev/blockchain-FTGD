@@ -13,7 +13,7 @@ const (
 	PubKeyLen    = 32
 	SeedLen      = 32
 	AddressLen   = 20
-	Version      = 0x00
+	// Version      = 0x00
 )
 
 // -----------------------------------------------------------------
@@ -65,20 +65,23 @@ func NewPrivateKeyFromSeed(seed []byte) *PrivateKey {
 
 func NewPrivateKeyFromString(s string) *PrivateKey {
 
-	b, err := hex.DecodeString(s)
+	seedBytes, err := hex.DecodeString(s)
 
 	if err != nil {
 		panic(err)
 	}
 
-	return NewPrivateKeyFromSeed(b)
+	return NewPrivateKeyFromSeed(seedBytes)
 }
 
 func NewPrivateKeyFromSeedStr(s string) *PrivateKey {
+
 	seedBytes, err := hex.DecodeString(s)
+
 	if err != nil {
 		panic(err)
 	}
+
 	return NewPrivateKeyFromSeed(seedBytes)
 }
 

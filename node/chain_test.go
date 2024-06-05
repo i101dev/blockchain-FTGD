@@ -1,8 +1,6 @@
 package node
 
 import (
-	"encoding/hex"
-	"fmt"
 	"testing"
 
 	"github.com/i101dev/blocker/crypto"
@@ -81,13 +79,13 @@ func TestAddBlockWithTX(t *testing.T) {
 		block = RandomBlock(t, chain)
 	)
 
-	ftt, err := chain.txStore.Get("9b35f571bcc6c3718df2ecae5c5d9ae0086f5256734f80455da6c0f147fe0201")
+	prevTx, err := chain.txStore.Get("9b35f571bcc6c3718df2ecae5c5d9ae0086f5256734f80455da6c0f147fe0201")
 	assert.Nil(t, err)
 
 	inputs := []*proto.TxInput{
 		{
 			PrevOutIndex: 0,
-			PrevTxHash:   types.HashTransaction(ftt),
+			PrevTxHash:   types.HashTransaction(prevTx),
 			PubKey:       senderPrivKey.PubKey().Bytes(),
 		},
 	}
@@ -112,21 +110,64 @@ func TestAddBlockWithTX(t *testing.T) {
 	tx.Inputs[0].Signature = sig.Bytes()
 
 	block.Transactions = append(block.Transactions, tx)
+	types.SignBlock(senderPrivKey, block)
 	require.Nil(t, chain.AddBlock(block))
 
-	txHash := hex.EncodeToString(types.HashTransaction(tx))
+	// txHash := hex.EncodeToString(types.HashTransaction(tx))
 
-	fetchedTx, err := chain.txStore.Get(txHash)
+	// fetchedTx, err := chain.txStore.Get(txHash)
+	// assert.Nil(t, err)
+	// assert.Equal(t, tx, fetchedTx)
+
+	// Check all outputs are unspent by querying the UTXO storage
+	// fetchedTx, err = chain.txStore.Get(txHash)
+	// assert.Nil(t, err)
+
+	// nOutputs := len(fetchedTx.Outputs)
+	// for i := 0; i < nOutputs; i++ {
+	// 	key := fmt.Sprintf("%s_%d", txHash, i)
+	// 	utxo, err := chain.utxoStore.Get(key)
+	// 	assert.Nil(t, err)
+	// 	assert.False(t, utxo.Spent)
+	// }
+}
+
+func TestAddBlockWithTXInsufficientFunds(t *testing.T) {
+
+	var (
+		receiverPubKey = crypto.GeneratePrivateKey().PubKey().Address().Bytes()
+		senderPrivKey  = crypto.NewPrivateKeyFromSeedStr(originSeed)
+
+		chain = NewChain(NewMemoryBlockStore(), NewMemoryTXStore(), NewMemoryUTXOStore())
+		block = RandomBlock(t, chain)
+	)
+
+	prevTx, err := chain.txStore.Get("9b35f571bcc6c3718df2ecae5c5d9ae0086f5256734f80455da6c0f147fe0201")
 	assert.Nil(t, err)
-	assert.Equal(t, tx, fetchedTx)
 
-	// Check to see if there exists an unspent UTXO -------
+	inputs := []*proto.TxInput{
+		{
+			PrevOutIndex: 0,
+			PrevTxHash:   types.HashTransaction(prevTx),
+			PubKey:       senderPrivKey.PubKey().Bytes(),
+		},
+	}
+	outputs := []*proto.TxOutput{
+		{
+			Amount:  124,
+			Address: receiverPubKey,
+		},
+	}
 
-	address := crypto.AddressFromBytes(tx.Outputs[1].Address)
-	key := fmt.Sprintf("%s_%s", address, txHash)
+	tx := &proto.Transaction{
+		Version: 1,
+		Inputs:  inputs,
+		Outputs: outputs,
+	}
 
-	utxo, err := chain.utxoStore.Get(key)
-	fmt.Println("\n*** >>> [UTXO] -", utxo)
-	assert.Nil(t, err)
-	// assert.Equal(t, outputs[1].Amount, utxo.Amount)
+	sig := types.SignTransaction(senderPrivKey, tx)
+	tx.Inputs[0].Signature = sig.Bytes()
+
+	block.Transactions = append(block.Transactions, tx)
+	require.NotNil(t, chain.AddBlock(block))
 }

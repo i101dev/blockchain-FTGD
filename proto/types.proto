@@ -22,9 +22,6 @@ message Block {
     repeated Transaction transactions = 4;
 }
 
-// Sometimes you don't want to send everything to a node
-// Sometimes you only want to send a header - ex. verification, validation, etc
-// If hashing a block, usually just the header, rather than entire block
 message Header {
     int32 version = 1;
     int32 height = 2;
@@ -34,23 +31,14 @@ message Header {
 }
 
 message TxInput {
-
-    // hash for the previous [TX] - contains the output we want to spend
     bytes prevTxHash = 1;
-
-    // index of the output of the previous [TX] we want to spend
     uint32 prevOutIndex = 2;
-
-    // the public key of the transaction sender
     bytes pubKey = 3;
     bytes signature = 4;
 }
 
 message TxOutput {
-
     uint64 amount = 1;
-
-    // the new owner of the respective output [amount]
     bytes address = 2;
 }
 

@@ -168,11 +168,11 @@ func (n *Node) addPeer(c proto.NodeClient, v *proto.Version) {
 	fmt.Printf("\n(%s) - New peer: (%s) - height: (%d)", n.ListenAddr, v.ListenAddr, v.Height)
 }
 
-func (n *Node) deletePeer(c proto.NodeClient) {
-	n.peerLock.Lock()
-	defer n.peerLock.Unlock()
-	delete(n.peerList, c)
-}
+// func (n *Node) deletePeer(c proto.NodeClient) {
+// 	n.peerLock.Lock()
+// 	defer n.peerLock.Unlock()
+// 	delete(n.peerList, c)
+// }
 
 func (n *Node) Handshake(ctx context.Context, v *proto.Version) (*proto.Version, error) {
 

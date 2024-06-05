@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/i101dev/blocker/crypto"
+	"github.com/i101dev/blocker/proto"
 	"github.com/i101dev/blocker/util"
 	"github.com/stretchr/testify/assert"
 )
@@ -35,4 +36,23 @@ func TestSignVerifyBlock(t *testing.T) {
 	invalidPrivKey := crypto.GeneratePrivateKey()
 	block.PublicKey = invalidPrivKey.PubKey().Bytes()
 	assert.False(t, VerifyBlock(block))
+}
+
+func TestCalculateRootHash(t *testing.T) {
+
+	block := util.RandomBlock()
+	privKey := crypto.GeneratePrivateKey()
+
+	tx := &proto.Transaction{
+		Version: 1,
+	}
+
+	block.Transactions = append(block.Transactions, tx)
+	SignBlock(privKey, block)
+	assert.True(t, VerifyRootHash(block))
+	assert.Equal(t, 32, len(block.Header.RootHash))
+
+	// _, err := GetMerkleTree(block)
+	// assert.Nil(t, err)
+	// fmt.Println("block -", len(block.Header.RootHash))
 }
