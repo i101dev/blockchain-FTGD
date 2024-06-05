@@ -104,6 +104,27 @@ func (c *Chain) addBlock(b *proto.Block) error {
 				return err
 			}
 		}
+
+		for _, input := range tx.Inputs {
+			key := fmt.Sprintf("%s_%d", hex.EncodeToString(input.PrevTxHash), input.PrevOutIndex)
+			fmt.Println("*** >>> key:", key)
+			utxo, err := c.utxoStore.Get(key)
+			if err != nil {
+				panic(err)
+			}
+
+			utxo.Spent = true
+			if err := c.utxoStore.Put(utxo); err != nil {
+				return err
+			}
+
+			// fmt.Println("\n-----------------------------------------------")
+			// fmt.Printf("\n*** >>> [utxo.Hash] - %+v", utxo.Hash)
+			// fmt.Printf("\n*** >>> [utxo.OutIndex] - %+v", utxo.OutIndex)
+			// fmt.Printf("\n*** >>> [utxo.Amount] - %+v", utxo.Amount)
+			// fmt.Printf("\n*** >>> [utxo.Spent] - %+v", utxo.Spent)
+			// fmt.Println("\n-----------------------------------------------")
+		}
 	}
 
 	return c.blockStore.Put(b)
