@@ -1,6 +1,8 @@
 package node
 
 import (
+	"encoding/hex"
+	"fmt"
 	"testing"
 
 	"github.com/i101dev/blocker/crypto"
@@ -73,7 +75,7 @@ func TestAddBlockWithTX(t *testing.T) {
 
 	var (
 		receiverPubKey = crypto.GeneratePrivateKey().PubKey().Address().Bytes()
-		senderPrivKey  = crypto.NewPrivateKeyFromSeedStr(originSeed)
+		senderPrivKey  = crypto.NewPrivateKeyFromString(originSeed)
 
 		chain = NewChain(NewMemoryBlockStore(), NewMemoryTXStore(), NewMemoryUTXOStore())
 		block = RandomBlock(t, chain)
@@ -113,30 +115,30 @@ func TestAddBlockWithTX(t *testing.T) {
 	types.SignBlock(senderPrivKey, block)
 	require.Nil(t, chain.AddBlock(block))
 
-	// txHash := hex.EncodeToString(types.HashTransaction(tx))
+	txHash := types.HashTransaction(tx)
+	txHashStr := hex.EncodeToString(txHash)
 
-	// fetchedTx, err := chain.txStore.Get(txHash)
-	// assert.Nil(t, err)
-	// assert.Equal(t, tx, fetchedTx)
+	fetchedTx, err := chain.txStore.Get(txHashStr)
+	assert.Nil(t, err)
+	assert.Equal(t, tx, fetchedTx)
 
 	// Check all outputs are unspent by querying the UTXO storage
-	// fetchedTx, err = chain.txStore.Get(txHash)
-	// assert.Nil(t, err)
+	nOutputs := len(fetchedTx.Outputs)
+	for i := 0; i < nOutputs; i++ {
+		key := fmt.Sprintf("%s_%d", txHashStr, i)
+		utxo, err := chain.utxoStore.Get(key)
+		assert.Nil(t, err)
+		assert.False(t, utxo.Spent)
+	}
 
-	// nOutputs := len(fetchedTx.Outputs)
-	// for i := 0; i < nOutputs; i++ {
-	// 	key := fmt.Sprintf("%s_%d", txHash, i)
-	// 	utxo, err := chain.utxoStore.Get(key)
-	// 	assert.Nil(t, err)
-	// 	assert.False(t, utxo.Spent)
-	// }
+	fmt.Println()
 }
 
 func TestAddBlockWithTXInsufficientFunds(t *testing.T) {
 
 	var (
 		receiverPubKey = crypto.GeneratePrivateKey().PubKey().Address().Bytes()
-		senderPrivKey  = crypto.NewPrivateKeyFromSeedStr(originSeed)
+		senderPrivKey  = crypto.NewPrivateKeyFromString(originSeed)
 
 		chain = NewChain(NewMemoryBlockStore(), NewMemoryTXStore(), NewMemoryUTXOStore())
 		block = RandomBlock(t, chain)

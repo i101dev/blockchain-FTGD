@@ -12,36 +12,6 @@ import (
 	pb "google.golang.org/protobuf/proto"
 )
 
-func VerifyBlock(b *proto.Block) bool {
-
-	if len(b.Transactions) > 0 {
-		// if !VerifyRootHash(b) {
-		// 	fmt.Println("\n*** >>> INVALID ROOT HASH <<< ***")
-		// 	return false
-		// }
-	}
-
-	if len(b.PublicKey) != crypto.PubKeyLen {
-		fmt.Println("\n*** >>> INVALID PUBLIC KEY LENGTH <<< ***")
-		return false
-	}
-	if len(b.Signature) != crypto.SignatureLen {
-		fmt.Println("\n*** >>> INVALID SIGNATURE LENGTH <<< ***")
-		return false
-	}
-
-	pubKey := crypto.PubKeyFromBytes(b.PublicKey)
-	sig := crypto.SignatureFromBytes(b.Signature)
-	hash := HashBlock(b)
-
-	if !sig.Verify(pubKey, hash) {
-		fmt.Println("\n*** >>> [sig.verify] - FAIL! - <<< ***")
-		return false
-	}
-
-	return true
-}
-
 func SignBlock(pk *crypto.PrivateKey, block *proto.Block) *crypto.Signature {
 
 	if len(block.Transactions) > 0 {
@@ -81,6 +51,31 @@ func HashHeader(h *proto.Header) []byte {
 	return hash[:]
 }
 
+func VerifyBlock(b *proto.Block) bool {
+
+	// if len(b.Transactions) > 0 {
+	// if !VerifyRootHash(b) {
+	// 	fmt.Println("\n*** >>> INVALID ROOT HASH <<< ***")
+	// 	return false
+	// }
+	// }
+
+	if len(b.PublicKey) != crypto.PubKeyLen {
+		fmt.Println("\n*** >>> INVALID PUBLIC KEY LENGTH <<< ***")
+		return false
+	}
+	if len(b.Signature) != crypto.SignatureLen {
+		fmt.Println("\n*** >>> INVALID SIGNATURE LENGTH <<< ***")
+		return false
+	}
+
+	pubKey := crypto.PubKeyFromBytes(b.PublicKey)
+	sig := crypto.SignatureFromBytes(b.Signature)
+	hash := HashBlock(b)
+
+	return sig.Verify(pubKey, hash)
+}
+
 // -------------------------------------------------------
 type TxHash struct {
 	hash []byte
@@ -117,9 +112,9 @@ func VerifyRootHash(b *proto.Block) bool {
 
 func GetMerkleTree(b *proto.Block) (*merkletree.MerkleTree, error) {
 
-	if len(b.Transactions) == 0 {
+	// if len(b.Transactions) == 0 {
 
-	}
+	// }
 
 	list := make([]merkletree.Content, len(b.Transactions))
 

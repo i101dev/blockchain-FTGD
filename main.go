@@ -114,7 +114,10 @@ func makeTransaction() {
 		},
 	}
 
-	_, err = c.HandleTX(context.TODO(), txn)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+	defer cancel()
+
+	_, err = c.HandleTX(ctx, txn)
 
 	if err != nil {
 		log.Fatal("\n*** >>> [makeTransaction] - FAIL -", err)

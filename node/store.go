@@ -98,8 +98,8 @@ func (s *MemoryTXStore) Put(tx *proto.Transaction) error {
 // ------------------------------------------------------------------------
 
 type BlockStorer interface {
-	Put(*proto.Block) error
-	Get(string) (*proto.Block, error)
+	PutBlock(*proto.Block) error
+	GetBlock(string) (*proto.Block, error)
 }
 
 type MemoryBlockStore struct {
@@ -113,7 +113,7 @@ func NewMemoryBlockStore() *MemoryBlockStore {
 	}
 }
 
-func (s *MemoryBlockStore) Put(b *proto.Block) error {
+func (s *MemoryBlockStore) PutBlock(b *proto.Block) error {
 
 	s.lock.Lock()
 	defer s.lock.Unlock()
@@ -124,7 +124,7 @@ func (s *MemoryBlockStore) Put(b *proto.Block) error {
 	return nil
 }
 
-func (s *MemoryBlockStore) Get(hash string) (*proto.Block, error) {
+func (s *MemoryBlockStore) GetBlock(hash string) (*proto.Block, error) {
 
 	s.lock.RLock()
 	defer s.lock.RUnlock()

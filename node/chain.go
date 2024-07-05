@@ -11,7 +11,7 @@ import (
 )
 
 // ----------------------------------------------------------------------------------
-const originSeed = "b72a9caf5a5c5e6b88ee6f25f053d07b43ddc263a034e2b8e7175e558c18a6ed"
+const originSeed string = "b72a9caf5a5c5e6b88ee6f25f053d07b43ddc263a034e2b8e7175e558c18a6ed"
 
 // ----------------------------------------------------------------------------------
 type HeaderList struct {
@@ -35,12 +35,12 @@ func (list *HeaderList) Get(index int) *proto.Header {
 	return list.headers[index]
 }
 
-func (list *HeaderList) Height() int {
-	return list.Len() - 1
-}
-
 func (list *HeaderList) Len() int {
 	return len(list.headers)
+}
+
+func (list *HeaderList) Height() int {
+	return list.Len() - 1
 }
 
 // ----------------------------------------------------------------
@@ -82,19 +82,19 @@ func (c *Chain) addBlock(b *proto.Block) error {
 	c.headers.Add(b.Header)
 
 	for _, tx := range b.Transactions {
-		// fmt.Println("*** >>> New TX:", hex.EncodeToString(types.HashTransaction(tx)))
+
 		if err := c.txStore.Put(tx); err != nil {
 			return err
 		}
 
 		hash := hex.EncodeToString(types.HashTransaction(tx))
 
-		for it, output := range tx.Outputs {
+		for index, output := range tx.Outputs {
 
 			utxo := &UTXO{
 				Hash:     hash,
 				Amount:   output.Amount,
-				OutIndex: it,
+				OutIndex: index,
 				Spent:    false,
 			}
 
@@ -106,14 +106,16 @@ func (c *Chain) addBlock(b *proto.Block) error {
 		}
 
 		for _, input := range tx.Inputs {
+
 			key := fmt.Sprintf("%s_%d", hex.EncodeToString(input.PrevTxHash), input.PrevOutIndex)
-			// fmt.Println("*** >>> key:", key)
 			utxo, err := c.utxoStore.Get(key)
+
 			if err != nil {
 				panic(err)
 			}
 
 			utxo.Spent = true
+
 			if err := c.utxoStore.Put(utxo); err != nil {
 				return err
 			}
@@ -127,7 +129,7 @@ func (c *Chain) addBlock(b *proto.Block) error {
 		}
 	}
 
-	return c.blockStore.Put(b)
+	return c.blockStore.PutBlock(b)
 }
 
 func (c *Chain) AddBlock(b *proto.Block) error {
@@ -141,7 +143,7 @@ func (c *Chain) AddBlock(b *proto.Block) error {
 
 func (c *Chain) GetBlockByHash(hash []byte) (*proto.Block, error) {
 	hashHex := hex.EncodeToString(hash)
-	return c.blockStore.Get(hashHex)
+	return c.blockStore.GetBlock(hashHex)
 }
 
 func (c *Chain) GetBlockByHeight(height int) (*proto.Block, error) {
@@ -227,7 +229,7 @@ func (c *Chain) ValidateTransaction(tx *proto.Transaction) error {
 
 func createGenesisBlock() *proto.Block {
 
-	privKey := crypto.NewPrivateKeyFromSeedStr(originSeed)
+	privKey := crypto.NewPrivateKeyFromString(originSeed)
 
 	block := &proto.Block{
 		Header: &proto.Header{

@@ -38,16 +38,10 @@ func TestPublicKeyToAddress(t *testing.T) {
 	pubKey := privKey.PubKey()
 	addr := pubKey.Address()
 
-	// fmt.Println("\n*** >>> [addr] -", addr)
-
 	assert.Equal(t, AddressLen, len(addr.Bytes()))
 }
 
 func TestPrivateKeyFromString(t *testing.T) {
-
-	// seed = make([]byte, 32)
-	// io.ReadFull(rand.Reader, seed)
-	// fmt.Println(hex.EncodeToString(seed))
 
 	var (
 		seed       = "d9822b1297a81035af59e88f40cc26d12d9ed77314d2c0ebac1b83f12d34d36c"
@@ -57,9 +51,6 @@ func TestPrivateKeyFromString(t *testing.T) {
 
 	address := privKey.PubKey().Address()
 
-	// fmt.Println("\n*** >>> [add from string] -", address)
-
 	assert.Equal(t, addressStr, address.String())
 	assert.Equal(t, PrivKeyLen, len(privKey.Bytes()))
-
 }

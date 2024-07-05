@@ -148,24 +148,24 @@ func (n *Node) Start(bootstrapNodes []string) error {
 	return gRPCserver.Serve(ln)
 }
 
-func (n *Node) addPeer(c proto.NodeClient, v *proto.Version) {
+func (n *Node) addPeer(client proto.NodeClient, nodeDat *proto.Version) {
 
 	n.peerLock.Lock()
 	defer n.peerLock.Unlock()
 
 	for _, peerVersion := range n.peerList {
-		if peerVersion.ListenAddr == v.ListenAddr {
+		if peerVersion.ListenAddr == nodeDat.ListenAddr {
 			return
 		}
 	}
 
-	n.peerList[c] = v
+	n.peerList[client] = nodeDat
 
-	if len(v.PeerList) > 0 {
-		go n.bootstrapNetwork(v.PeerList)
+	if len(nodeDat.PeerList) > 0 {
+		go n.bootstrapNetwork(nodeDat.PeerList)
 	}
 
-	fmt.Printf("\n(%s) - New peer: (%s) - height: (%d)", n.ListenAddr, v.ListenAddr, v.Height)
+	fmt.Printf("\n(%s) - New peer: (%s) - height: (%d)", n.ListenAddr, nodeDat.ListenAddr, nodeDat.Height)
 }
 
 // func (n *Node) deletePeer(c proto.NodeClient) {
@@ -235,6 +235,7 @@ func (n *Node) validatorLoop() {
 		<-ticker.C
 
 		txx := n.mempool.Clear()
+
 		fmt.Printf("\n*** >>> CREATE NEW BLOCK <<< *** || lenTx: (%d)", len(txx))
 	}
 }

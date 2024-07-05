@@ -13,7 +13,7 @@ const (
 	PubKeyLen    = 32
 	SeedLen      = 32
 	AddressLen   = 20
-	// Version      = 0x00
+	Version      = 0x00
 )
 
 // -----------------------------------------------------------------
@@ -55,7 +55,7 @@ func GeneratePrivateKey() *PrivateKey {
 
 func NewPrivateKeyFromSeed(seed []byte) *PrivateKey {
 	if len(seed) != SeedLen {
-		panic("invalid seed length")
+		panic("\n*** >>> invalid seed length")
 	}
 
 	return &PrivateKey{
@@ -74,19 +74,9 @@ func NewPrivateKeyFromString(s string) *PrivateKey {
 	return NewPrivateKeyFromSeed(seedBytes)
 }
 
-func NewPrivateKeyFromSeedStr(s string) *PrivateKey {
-
-	seedBytes, err := hex.DecodeString(s)
-
-	if err != nil {
-		panic(err)
-	}
-
-	return NewPrivateKeyFromSeed(seedBytes)
-}
-
 // -----------------------------------------------------------------
 // -----------------------------------------------------------------
+
 type PublicKey struct {
 	key ed25519.PublicKey
 }
@@ -104,7 +94,7 @@ func (p *PublicKey) Address() Address {
 func PubKeyFromBytes(b []byte) *PublicKey {
 
 	if len(b) != PubKeyLen {
-		panic("invalid pubkey length")
+		panic("\n*** >>> invalid pubkey length")
 	}
 
 	return &PublicKey{
@@ -129,7 +119,7 @@ func (s *Signature) Verify(pubKey *PublicKey, msg []byte) bool {
 func SignatureFromBytes(b []byte) *Signature {
 
 	if len(b) != SignatureLen {
-		panic("invalid signature length")
+		panic("\n*** >>> invalid signature length")
 	}
 
 	return &Signature{
@@ -151,13 +141,13 @@ func (a Address) String() string {
 	return hex.EncodeToString(a.value)
 }
 
-func AddressFromBytes(b []byte) Address {
+// func AddressFromBytes(b []byte) Address {
 
-	if len(b) != AddressLen {
-		panic("invalid address length - not equal to 20")
-	}
+// 	if len(b) != AddressLen {
+// 		panic("\n*** >>> invalid address length - not equal to 20")
+// 	}
 
-	return Address{
-		value: b,
-	}
-}
+// 	return Address{
+// 		value: b,
+// 	}
+// }
